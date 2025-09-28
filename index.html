@@ -2,23 +2,211 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Rust + Wasm Intro</title>
+    <title>Rust + WebAssembly Demo</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 1rem;
+        line-height: 1.6;
+      }
+      .demo-section {
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        background: #f8fafc;
+      }
+      input, button {
+        padding: 0.5rem;
+        margin: 0.25rem;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        font-size: 1rem;
+      }
+      button {
+        background: #3b82f6;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #2563eb;
+      }
+      .result {
+        background: #ecfdf5;
+        border: 1px solid #a7f3d0;
+        border-radius: 4px;
+        padding: 1rem;
+        margin: 1rem 0;
+        font-weight: bold;
+        color: #065f46;
+      }
+      .performance {
+        font-size: 0.9rem;
+        color: #6b7280;
+        font-style: italic;
+      }
+    </style>
   </head>
   <body>
-    <h1>Rust + WebAssembly Demo</h1>
-    <input id="name" placeholder="Dein Name">
-    <button id="btn">Sag Hallo</button>
-    <p id="output"></p>
+    <h1>🦀 Rust + WebAssembly Demo</h1>
+    
+    <p>Diese Demo zeigt verschiedene Rust-Funktionen, die direkt im Browser ausgeführt werden.</p>
+    
+    <!-- Grundlegende Grußfunktion -->
+    <div class="demo-section">
+      <h3>1. Einfache Grußfunktion</h3>
+      <input id="name" placeholder="Dein Name">
+      <button id="greet-btn">Sag Hallo</button>
+      <div id="greet-output" class="result" style="display: none;"></div>
+    </div>
+
+    <!-- Mathematik: Fibonacci -->
+    <div class="demo-section">
+      <h3>2. Fibonacci-Berechnung (Performance-Test)</h3>
+      <input id="fib-input" type="number" placeholder="Zahl (z.B. 40)" min="0" max="45">
+      <button id="fib-btn">Berechnen</button>
+      <button id="fib-js-btn">Mit JavaScript vergleichen</button>
+      <div id="fib-output" class="result" style="display: none;"></div>
+    </div>
+
+    <!-- Arrays verarbeiten -->
+    <div class="demo-section">
+      <h3>3. Array-Summe</h3>
+      <input id="array-input" placeholder="Zahlen (z.B. 1,2,3,4,5)">
+      <button id="array-btn">Summe berechnen</button>
+      <div id="array-output" class="result" style="display: none;"></div>
+    </div>
+
+    <!-- String-Verarbeitung -->
+    <div class="demo-section">
+      <h3>4. String umkehren</h3>
+      <input id="string-input" placeholder="Text zum Umkehren">
+      <button id="string-btn">Umkehren</button>
+      <div id="string-output" class="result" style="display: none;"></div>
+    </div>
+
+    <!-- Primzahl-Test -->
+    <div class="demo-section">
+      <h3>5. Primzahl-Test</h3>
+      <input id="prime-input" type="number" placeholder="Zahl prüfen" min="0">
+      <button id="prime-btn">Prüfen</button>
+      <div id="prime-output" class="result" style="display: none;"></div>
+    </div>
+
+    <!-- Debug-Nachrichten -->
+    <div class="demo-section">
+      <h3>6. Debug-Nachrichten</h3>
+      <p>Schaue in die Browser-Konsole (F12) für Debug-Ausgaben.</p>
+      <button id="debug-btn">Debug-Nachricht senden</button>
+    </div>
 
     <script type="module">
-      import init, { greet } from "./pkg/wasm_intro.js";
+      import init, { 
+        greet, 
+        fibonacci, 
+        sum_array, 
+        reverse_string, 
+        is_prime,
+        debug_message 
+      } from "./pkg/wasm_intro.js";
+
+      // JavaScript Fibonacci für Vergleich
+      function fibonacciJS(n) {
+        if (n <= 1) return n;
+        return fibonacciJS(n - 1) + fibonacciJS(n - 2);
+      }
 
       async function run() {
         await init();
-        document.getElementById("btn").addEventListener("click", () => {
-          const name = document.getElementById("name").value;
-          document.getElementById("output").textContent = greet(name);
+        
+        // Grußfunktion
+        document.getElementById("greet-btn").addEventListener("click", () => {
+          const name = document.getElementById("name").value || "Welt";
+          const result = greet(name);
+          const output = document.getElementById("greet-output");
+          output.textContent = result;
+          output.style.display = "block";
         });
+
+        // Fibonacci
+        document.getElementById("fib-btn").addEventListener("click", () => {
+          const n = parseInt(document.getElementById("fib-input").value) || 10;
+          const start = performance.now();
+          const result = fibonacci(n);
+          const end = performance.now();
+          const output = document.getElementById("fib-output");
+          output.innerHTML = `
+            <strong>Fibonacci(${n}) = ${result}</strong><br>
+            <span class="performance">Rust/WASM: ${(end - start).toFixed(2)}ms</span>
+          `;
+          output.style.display = "block";
+        });
+
+        // Fibonacci JS Vergleich
+        document.getElementById("fib-js-btn").addEventListener("click", () => {
+          const n = parseInt(document.getElementById("fib-input").value) || 10;
+          
+          // Rust/WASM Version
+          const startRust = performance.now();
+          const resultRust = fibonacci(n);
+          const endRust = performance.now();
+          
+          // JavaScript Version
+          const startJS = performance.now();
+          const resultJS = fibonacciJS(n);
+          const endJS = performance.now();
+          
+          const output = document.getElementById("fib-output");
+          output.innerHTML = `
+            <strong>Fibonacci(${n}) = ${resultRust}</strong><br>
+            <span class="performance">
+              🦀 Rust/WASM: ${(endRust - startRust).toFixed(2)}ms<br>
+              🟨 JavaScript: ${(endJS - startJS).toFixed(2)}ms<br>
+              Speedup: ${((endJS - startJS) / (endRust - startRust)).toFixed(1)}x schneller
+            </span>
+          `;
+          output.style.display = "block";
+        });
+
+        // Array-Summe
+        document.getElementById("array-btn").addEventListener("click", () => {
+          const input = document.getElementById("array-input").value || "1,2,3,4,5";
+          const numbers = input.split(',').map(x => parseFloat(x.trim())).filter(x => !isNaN(x));
+          const result = sum_array(new Float64Array(numbers));
+          const output = document.getElementById("array-output");
+          output.textContent = `Summe von [${numbers.join(', ')}] = ${result}`;
+          output.style.display = "block";
+        });
+
+        // String umkehren
+        document.getElementById("string-btn").addEventListener("click", () => {
+          const input = document.getElementById("string-input").value || "Hello WebAssembly";
+          const result = reverse_string(input);
+          const output = document.getElementById("string-output");
+          output.textContent = `"${input}" → "${result}"`;
+          output.style.display = "block";
+        });
+
+        // Primzahl-Test
+        document.getElementById("prime-btn").addEventListener("click", () => {
+          const n = parseInt(document.getElementById("prime-input").value) || 17;
+          const result = is_prime(n);
+          const output = document.getElementById("prime-output");
+          output.textContent = `${n} ist ${result ? 'eine Primzahl ✅' : 'keine Primzahl ❌'}`;
+          output.style.display = "block";
+        });
+
+        // Debug-Nachricht
+        document.getElementById("debug-btn").addEventListener("click", () => {
+          debug_message("Hello from Rust! Check the browser console.");
+          alert("Debug-Nachricht gesendet! Schaue in die Konsole (F12).");
+        });
+
+        // Zeige eine Willkommensnachricht
+        debug_message("WebAssembly-Modul erfolgreich geladen!");
       }
 
       run();
