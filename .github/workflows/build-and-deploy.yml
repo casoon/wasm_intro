@@ -1,4 +1,4 @@
-name: Build and Deploy WASM Demo
+name: Build and Deploy WASM Series
 
 on:
   push:
@@ -19,6 +19,13 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        part:
+          - part-01-grundlagen
+          # Weitere Teile werden hier hinzugefügt:
+          # - part-02-bildoptimierung
+          # - part-03-pdf-generation
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -30,6 +37,8 @@ jobs:
 
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ${{ matrix.part }}
 
     - name: Install wasm-pack
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
@@ -39,29 +48,50 @@ jobs:
       with:
         node-version: '18'
 
-    - name: Format check
-      run: cargo fmt --check
+    - name: Check if part exists
+      run: |
+        if [ ! -d "${{ matrix.part }}" ]; then
+          echo "Part ${{ matrix.part }} does not exist, skipping"
+          exit 0
+        fi
 
-    - name: Lint check
-      run: cargo clippy -- -D warnings
+    - name: Format check
+      working-directory: ${{ matrix.part }}
+      run: |
+        if [ -f "Cargo.toml" ]; then
+          cargo fmt --check
+        fi
+
+    - name: Lint check  
+      working-directory: ${{ matrix.part }}
+      run: |
+        if [ -f "Cargo.toml" ]; then
+          cargo clippy -- -D warnings
+        fi
 
     - name: Run tests
-      run: cargo test
+      working-directory: ${{ matrix.part }}
+      run: |
+        if [ -f "Cargo.toml" ]; then
+          cargo test
+        fi
 
     - name: Build WebAssembly
-      run: wasm-pack build --target web
-
-    - name: List generated files (debug)
-      run: ls -la pkg/
+      working-directory: ${{ matrix.part }}
+      run: |
+        if [ -f "Cargo.toml" ]; then
+          wasm-pack build --target web
+          ls -la pkg/ || true
+        fi
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: wasm-build
+        name: wasm-build-${{ matrix.part }}
         path: |
-          pkg/
-          index.html
-          README.md
+          ${{ matrix.part }}/pkg/
+          ${{ matrix.part }}/index.html
+          ${{ matrix.part }}/README.md
 
   deploy:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
@@ -74,10 +104,46 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Download build artifacts
+    - name: Create deployment directory
+      run: mkdir -p deploy
+
+    - name: Copy main README and files
+      run: |
+        cp README.md deploy/
+        cp TROUBLESHOOTING.md deploy/ || true
+        
+    - name: Download all build artifacts
       uses: actions/download-artifact@v4
       with:
-        name: wasm-build
+        pattern: wasm-build-*
+        path: artifacts
+        merge-multiple: false
+
+    - name: Organize artifacts for deployment
+      run: |
+        # Copy each part to its deployment location
+        for artifact in artifacts/*/; do
+          part_name=$(basename "$artifact" | sed 's/wasm-build-//')
+          echo "Processing $part_name from $artifact"
+          
+          # Create part directory
+          mkdir -p "deploy/$part_name"
+          
+          # Copy all files from artifact to deployment
+          if [ -d "$artifact" ]; then
+            # Copy the actual part content
+            find "$artifact" -name "*" -type f -exec cp {} "deploy/$part_name/" \;
+            
+            # Also copy from the original part directory if it exists
+            if [ -d "$part_name" ]; then
+              cp -r "$part_name"/* "deploy/$part_name/" 2>/dev/null || true
+            fi
+          fi
+        done
+        
+        # List what we have for debugging
+        echo "Deployment structure:"
+        find deploy -type f | head -20
 
     - name: Setup Pages
       uses: actions/configure-pages@v4
@@ -85,7 +151,7 @@ jobs:
     - name: Upload to GitHub Pages
       uses: actions/upload-pages-artifact@v3
       with:
-        path: '.'
+        path: 'deploy'
 
     - name: Deploy to GitHub Pages
       id: deployment
