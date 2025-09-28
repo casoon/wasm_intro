@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Rust + Wasm Intro</title>
+  </head>
+  <body>
+    <h1>Rust + WebAssembly Demo</h1>
+    <input id="name" placeholder="Dein Name">
+    <button id="btn">Sag Hallo</button>
+    <p id="output"></p>
+
+    <script type="module">
+      import init, { greet } from "./pkg/wasm_intro.js";
+
+      async function run() {
+        await init();
+        document.getElementById("btn").addEventListener("click", () => {
+          const name = document.getElementById("name").value;
+          document.getElementById("output").textContent = greet(name);
+        });
+      }
+
+      run();
+    </script>
+  </body>
+</html>
